@@ -78,3 +78,5 @@ include:
     artifact-name: nice_corne_right
   ### CORNE END ###
 
+  - board: nice_nano_v2
+    shield: settings_reset
