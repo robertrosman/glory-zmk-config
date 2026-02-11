@@ -1,0 +1,11 @@
+# Copyright (c) 2020 Pete Johanson
+# SPDX-License-Identifier: MIT
+
+config SHIELD_GLORY_LEFT
+    def_bool $(shields_list_contains,glory_left)
+
+config SHIELD_GLORY_RIGHT
+    def_bool $(shields_list_contains,glory_right)
+
+config SHIELD_GLORY_LEFT_PERIPHERAL
+    def_bool $(shields_list_contains,glory_left_peripheral)

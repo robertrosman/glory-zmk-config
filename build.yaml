@@ -70,3 +70,12 @@ include:
 
   - board: nice_nano_v2
     shield: settings_reset
+
+  - board: nice_nano_v2
+    shield: glory_left
+    artifact-name: nice_glory_left
+    snippet: zmk-usb-logging
+  - board: nice_nano_v2
+    shield: glory_right
+    artifact-name: nice_glory_right
+    snippet: zmk-usb-logging
