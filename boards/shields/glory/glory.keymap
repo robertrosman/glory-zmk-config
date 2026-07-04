@@ -11,21 +11,114 @@
 #include <dt-bindings/zmk/bt.h>
 #include <dt-bindings/zmk/outputs.h>
 
-/ {
-        keymap {
-                compatible = "zmk,keymap";
+/* Pointing (trackball) support */
+#include <dt-bindings/zmk/pointing.h>          /* LCLK / RCLK / MCLK, MOVE_*, SCRL_* */
+#include <dt-bindings/zmk/input_transform.h>   /* INPUT_TRANSFORM_*_INVERT */
+#include <zephyr/dt-bindings/input/input-event-codes.h>
+#include <input/processors.dtsi>               /* zip_* stock processors */
 
-                default_layer {
+/*
+ * Layer indices:
+ *   0 default
+ *   1 lower
+ *   2 raise
+ *   3 mouse          (mouse buttons + scroll-mode access; hold via &lt 3 on the
+ *                      right thumb. Cursor movement itself is always on.)
+ *   4 scroll_vertical   (trackball -> vertical wheel)
+ *   5 scroll_horizontal (trackball -> horizontal wheel)
+ *   6 scroll_all        (both; auto-activated when 4 and 5 are held together)
+ */
+#define DEF 0
+#define LWR 1
+#define RSE 2
+#define MSE 3
+#define SCV 4
+#define SCH 5
+#define SCA 6
+
+/*
+ * Layer-conditional trackball processing. The listener itself lives (and is
+ * enabled) on the central half in glory.dtsi / glory_left.overlay. With no
+ * override active it just passes X/Y through as cursor movement. On the scroll
+ * layers below, the raw X/Y are remapped to wheel events instead.
+ *
+ * This is the mainline-ZMK equivalent of doxology's zmk,input-behavior-listener
+ * blocks: the unwanted axis is routed to REL_MISC (which the HID mouse ignores)
+ * to silence it, and zip_scroll_scaler slows the wheel down. Tune the <mult div>
+ * on zip_scroll_scaler for scroll speed (larger divisor = slower).
+ */
+&trackball_listener {
+    scroll_vertical {
+        layers = <SCV>;
+        input-processors =
+            <&zip_xy_transform INPUT_TRANSFORM_Y_INVERT>,
+            <&scroll_vertical_mapper>,
+            <&zip_scroll_scaler 1 20>;
+    };
+
+    scroll_horizontal {
+        layers = <SCH>;
+        input-processors =
+            <&scroll_horizontal_mapper>,
+            <&zip_scroll_scaler 1 20>;
+    };
+
+    scroll_all {
+        layers = <SCA>;
+        input-processors =
+            <&zip_xy_transform INPUT_TRANSFORM_Y_INVERT>,
+            <&zip_xy_to_scroll_mapper>,
+            <&zip_scroll_scaler 1 20>;
+    };
+};
+
+/ {
+    /* Vertical-only scroll: Y -> wheel, X parked on REL_MISC (silenced). */
+    scroll_vertical_mapper: scroll_vertical_mapper {
+        compatible = "zmk,input-processor-code-mapper";
+        #input-processor-cells = <0>;
+        type = <INPUT_EV_REL>;
+        map
+            = <INPUT_REL_Y INPUT_REL_WHEEL>
+            , <INPUT_REL_X INPUT_REL_MISC>
+            ;
+    };
+
+    /* Horizontal-only scroll: X -> hwheel, Y parked on REL_MISC (silenced). */
+    scroll_horizontal_mapper: scroll_horizontal_mapper {
+        compatible = "zmk,input-processor-code-mapper";
+        #input-processor-cells = <0>;
+        type = <INPUT_EV_REL>;
+        map
+            = <INPUT_REL_X INPUT_REL_HWHEEL>
+            , <INPUT_REL_Y INPUT_REL_MISC>
+            ;
+    };
+
+    conditional_layers {
+        compatible = "zmk,conditional-layers";
+
+        /* Holding both scroll layers gives the combined all-directions scroll. */
+        scroll_all_cond {
+            if-layers = <SCV SCH>;
+            then-layer = <SCA>;
+        };
+    };
+
+    keymap {
+        compatible = "zmk,keymap";
+
+        default_layer {
 // -----------------------------------------------------------------------------------------
 // |  TAB |  Q  |  W  |  E  |  R  |  T  |   |  Y  |  U   |  I  |  O  |  P  | BKSP |
 // | CTRL |  A  |  S  |  D  |  F  |  G  |   |  H  |  J   |  K  |  L  |  ;  |  '   |
 // | SHFT |  Z  |  X  |  C  |  V  |  B  |   |  N  |  M   |  ,  |  .  |  /  | ESC  |
-//                    | GUI | LWR | SPC |   | ENT | RSE  | ALT |
+//                    | GUI | LWR | SPC |   | ENT | RSE  | MSE/ALT |
                         bindings = <
    &bootloader   &kp Q &kp W &kp E &kp R &kp T   &kp Y &kp U  &kp I     &kp O   &kp P    &kp BSPC
    &out OUT_TOG &kp A &kp S &kp D &kp F &kp G   &kp H &kp J  &kp K     &kp L   &kp SEMI &kp SQT
    &kp LSHFT &kp Z &kp X &kp C &kp V &kp B   &kp N &kp M  &kp COMMA &kp DOT &kp FSLH &kp ESC
-                  &kp LGUI &mo 1 &kp SPACE   &kp RET &mo 2 &kp RALT
+                  &kp LGUI &mo LWR &kp SPACE   &kp RET &mo RSE &lt MSE RALT
                         >;
                 };
                 lower_layer {
@@ -53,6 +146,49 @@
    &kp LCTRL &trans   &trans &trans   &trans   &trans      &kp MINUS &kp EQUAL &kp LBKT  &kp RBKT &kp BSLH &kp GRAVE
    &kp LSHFT &trans   &trans &trans   &trans   &trans      &kp UNDER &kp PLUS  &kp LBRC  &kp RBRC &kp PIPE &kp TILDE
                              &kp LGUI &trans   &kp SPACE   &kp RET   &trans    &kp RALT
+                        >;
+                };
+
+                mouse_layer {
+// -----------------------------------------------------------------------------------------
+// Mouse buttons on the left hand (trackball is on the right); scroll modes on
+// the left bottom row. Cursor moves with the trackball as usual.
+// |      |     | MCLK| RCLK| LCLK|     |   |     |     |     |     |     |      |
+// |      |     |     |     |     |     |   |     |     |     |     |     |      |
+// |      |     | SCRH| SCRV|     |     |   |     |     |     |     |     |      |
+//                    |     |     |     |   |     |     |     |
+                        bindings = <
+   &trans &trans &mkp MCLK &mkp RCLK &mkp LCLK &trans   &trans &trans &trans &trans &trans &trans
+   &trans &trans &trans    &trans    &trans    &trans   &trans &trans &trans &trans &trans &trans
+   &trans &trans &mo SCH   &mo SCV   &trans    &trans   &trans &trans &trans &trans &trans &trans
+                           &trans    &trans    &trans   &trans &trans &trans
+                        >;
+                };
+
+                scroll_vertical_layer {
+                        bindings = <
+   &trans &trans &trans &trans &trans &trans   &trans &trans &trans &trans &trans &trans
+   &trans &trans &trans &trans &trans &trans   &trans &trans &trans &trans &trans &trans
+   &trans &trans &trans &trans &trans &trans   &trans &trans &trans &trans &trans &trans
+                        &trans &trans &trans   &trans &trans &trans
+                        >;
+                };
+
+                scroll_horizontal_layer {
+                        bindings = <
+   &trans &trans &trans &trans &trans &trans   &trans &trans &trans &trans &trans &trans
+   &trans &trans &trans &trans &trans &trans   &trans &trans &trans &trans &trans &trans
+   &trans &trans &trans &trans &trans &trans   &trans &trans &trans &trans &trans &trans
+                        &trans &trans &trans   &trans &trans &trans
+                        >;
+                };
+
+                scroll_all_layer {
+                        bindings = <
+   &trans &trans &trans &trans &trans &trans   &trans &trans &trans &trans &trans &trans
+   &trans &trans &trans &trans &trans &trans   &trans &trans &trans &trans &trans &trans
+   &trans &trans &trans &trans &trans &trans   &trans &trans &trans &trans &trans &trans
+                        &trans &trans &trans   &trans &trans &trans
                         >;
                 };
         };

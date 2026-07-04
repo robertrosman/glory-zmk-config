@@ -5,9 +5,15 @@
  */
 
 #include "glory.dtsi"
+#include "trackball.dtsi"
 
 &default_transform {
     col-offset = <6>;
+};
+
+/* The trackball lives on this (peripheral) half; forward it over split channel 0. */
+&trackball_split {
+    device = <&trackball>;
 };
 
 &kscan0 {

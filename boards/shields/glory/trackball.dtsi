@@ -1,0 +1,66 @@
+/*
+ * PMW3610 trackball for the Glory right (peripheral) half.
+ *
+ * Bus: SPIM1 (peripheral instance 1). We deliberately do NOT use spi0, because
+ * on the nRF52840 SPI0/TWIM0 share peripheral instance 0 and glory.dtsi enables
+ * pro_micro_i2c (&i2c0 = TWIM0). SPIM1 avoids that conflict.
+ *
+ * The PMW3610 uses 3-wire SPI, so MOSI and MISO share a single SDIO line
+ * (both psels point at the same pin).
+ *
+ * Pin assignment (nice_nano_v2 / pro_micro), chosen to avoid Glory's matrix
+ * pins (cols D3-D8, rows D20/D18/D14/D10) and the i2c0 pins (P0.17 / P0.20):
+ *   SCK  -> pro_micro D0  (P0.08)
+ *   SDIO -> pro_micro D1  (P0.06)   MOSI + MISO share this line
+ *   CS   -> pro_micro D15 (P1.13)
+ *   IRQ  -> pro_micro D16 (P0.10)
+ * Adjust the pins below to match your actual wiring.
+ */
+
+#include <zephyr/dt-bindings/input/input-event-codes.h>
+
+&pinctrl {
+    /* Override the board default spi1 pinctrl (which would grab P1.11, a row). */
+    spi1_default: spi1_default {
+        group1 {
+            psels = <NRF_PSEL(SPIM_SCK, 0, 8)>,
+                <NRF_PSEL(SPIM_MOSI, 0, 6)>,
+                <NRF_PSEL(SPIM_MISO, 0, 6)>;
+        };
+    };
+
+    spi1_sleep: spi1_sleep {
+        group1 {
+            psels = <NRF_PSEL(SPIM_SCK, 0, 8)>,
+                <NRF_PSEL(SPIM_MOSI, 0, 6)>,
+                <NRF_PSEL(SPIM_MISO, 0, 6)>;
+            low-power-enable;
+        };
+    };
+};
+
+&spi1 {
+    status = "okay";
+    compatible = "nordic,nrf-spim";
+    pinctrl-0 = <&spi1_default>;
+    pinctrl-1 = <&spi1_sleep>;
+    pinctrl-names = "default", "sleep";
+    cs-gpios = <&pro_micro 15 GPIO_ACTIVE_LOW>;
+
+    trackball: trackball@0 {
+        status = "okay";
+        compatible = "pixart,pmw3610-alt";
+        reg = <0>;
+        spi-max-frequency = <2000000>;
+        irq-gpios = <&pro_micro 16 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>;
+        cpi = <600>;                 // 200-3200, step 200. Higher = faster cursor.
+        evt-type = <INPUT_EV_REL>;
+        x-input-code = <INPUT_REL_X>;
+        y-input-code = <INPUT_REL_Y>;
+        // swap-xy;   /* uncomment to swap X/Y (rotate 90 deg) */
+        // invert-x;  /* uncomment to flip horizontal direction */
+        // invert-y;  /* uncomment to flip vertical direction */
+    };
+};
+
+// vim: filetype=dts fdm=marker:

@@ -17,4 +17,9 @@
         ;
 };
 
+/* This (central) half receives the trackball events from the right peripheral. */
+&trackball_listener {
+    status = "okay";
+};
+
 // vim: filetype=dts fdm=marker:
