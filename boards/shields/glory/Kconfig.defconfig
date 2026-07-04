@@ -19,4 +19,13 @@ if SHIELD_GLORY_LEFT || SHIELD_GLORY_RIGHT || SHIELD_GLORY_LEFT_PERIPHERAL
 config ZMK_SPLIT
     default y
 
+# Pointing subsystem, enabled here (not in glory.conf) because Zephyr only merges
+# the conf matching the built shield name (e.g. glory_right.conf), never a shared
+# glory.conf. Both halves need it: the central runs the input-listener, and the
+# peripheral needs ZMK_INPUT_SPLIT (which lives under `if ZMK_POINTING`) to forward
+# the trackball — without it, split BT service.c fails to compile the input-split
+# GATT characteristic.
+config ZMK_POINTING
+    default y
+
 endif

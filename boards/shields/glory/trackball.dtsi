@@ -9,9 +9,11 @@
  * (both psels point at the same pin).
  *
  * Pin assignment (nice_nano_v2 / pro_micro), chosen to avoid Glory's matrix
- * pins (cols D3-D8, rows D20/D18/D14/D10) and the i2c0 pins (P0.17 / P0.20):
+ * pins (cols D3-D8, rows D20/D18/D14/D10), the i2c0 pins (P0.17 / P0.20), and
+ * P0.06 (D1) which the repo-wide boards/nice_nano_v2.overlay reserves for the
+ * WS2812 RGB strip on spi3:
  *   SCK  -> pro_micro D0  (P0.08)
- *   SDIO -> pro_micro D1  (P0.06)   MOSI + MISO share this line
+ *   SDIO -> pro_micro D9  (P1.06)   MOSI + MISO share this line
  *   CS   -> pro_micro D15 (P1.13)
  *   IRQ  -> pro_micro D16 (P0.10)
  * Adjust the pins below to match your actual wiring.
@@ -24,16 +26,16 @@
     spi1_default: spi1_default {
         group1 {
             psels = <NRF_PSEL(SPIM_SCK, 0, 8)>,
-                <NRF_PSEL(SPIM_MOSI, 0, 6)>,
-                <NRF_PSEL(SPIM_MISO, 0, 6)>;
+                <NRF_PSEL(SPIM_MOSI, 1, 6)>,
+                <NRF_PSEL(SPIM_MISO, 1, 6)>;
         };
     };
 
     spi1_sleep: spi1_sleep {
         group1 {
             psels = <NRF_PSEL(SPIM_SCK, 0, 8)>,
-                <NRF_PSEL(SPIM_MOSI, 0, 6)>,
-                <NRF_PSEL(SPIM_MISO, 0, 6)>;
+                <NRF_PSEL(SPIM_MOSI, 1, 6)>,
+                <NRF_PSEL(SPIM_MISO, 1, 6)>;
             low-power-enable;
         };
     };
